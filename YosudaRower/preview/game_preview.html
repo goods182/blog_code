@@ -447,10 +447,10 @@ function drawMidTrees(dt) {
 
     const edge  = riverEdge(tree.side === 'L' ? 0 : 1, d);
     const scale = d * 1.1;
-    // Lerp between bank edge and screen edge using laneRatio — correct at any depth
-    const sx = tree.side === 'L'
-      ? edge.x - tree.laneRatio * edge.x                 // 0=bank, 1=x=0
-      : edge.x + tree.laneRatio * (390 - edge.x);        // 0=bank, 1=x=W
+    // Spread grows with depth: base offset at horizon (0.25) + accelerating
+    // outward term (1.5*d) so trees fly toward/past the screen edge as they approach
+    const spreadPx = tree.laneRatio * 160 * (0.25 + 1.5 * d);
+    const sx = tree.side === 'L' ? edge.x - spreadPx : edge.x + spreadPx;
     const sy = edge.y;
 
     pixelTree(sx, sy, tree.baseW * scale, tree.baseH * scale, tree.type);
