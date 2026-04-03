@@ -452,8 +452,8 @@ function drawMidTrees(dt) {
 
     const edge  = riverEdge(tree.side === 'L' ? 0 : 1, d);
     const scale = d * 1.1;
-    // Lateral spread grows quadratically — feels more natural in perspective
-    const spreadPx = tree.spread * d * d;
+    // Linear spread: deep-forest trees stay offset into the grass even near horizon
+    const spreadPx = tree.spread * d;
     const sx = tree.side === 'L' ? edge.x - spreadPx : edge.x + spreadPx;
     const sy = edge.y;
 
