@@ -310,17 +310,18 @@ let farOffset  = 0;   // hills / sky clouds (still horizontal)
 let waterOffset = 0;  // water ripple lines
 
 function randTree() {
-  // laneRatio: 0 = right at the bank/river edge, 1 = at the screen edge.
-  // Position is computed as lerp(bankEdge, screenEdge) at every depth, so
-  // even at the horizon a tree with laneRatio=0.8 sits 80% across the grass.
+  // laneRatio: 0 = bank edge, 1 = screen edge, >1 = off-screen start.
+  // rate is derived directly from laneRatio: close to bank = fast, deep forest = slow.
+  const laneRatio = 0.3 + Math.random() * 1.1;
+  const rate = Math.max(0.10, 0.52 - Math.min(laneRatio, 1.0) * 0.38);
   return {
-    d:         Math.random(),
-    side:      Math.random() < 0.5 ? 'L' : 'R',
-    type:      Math.floor(Math.random() * 3),
-    baseW:     14 + Math.random() * 24,
-    baseH:     45 + Math.random() * 75,
-    laneRatio: 0.3 + Math.random() * 1.1,  // biased toward/beyond screen edge; >1 = off-screen start
-    rate:      0.28 + Math.random() * 0.14,
+    d:     Math.random(),
+    side:  Math.random() < 0.5 ? 'L' : 'R',
+    type:  Math.floor(Math.random() * 3),
+    baseW: 14 + Math.random() * 24,
+    baseH: 45 + Math.random() * 75,
+    laneRatio,
+    rate,
   };
 }
 
