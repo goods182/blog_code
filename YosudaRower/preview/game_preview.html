@@ -319,7 +319,7 @@ function randTree() {
     type:      Math.floor(Math.random() * 3),
     baseW:     14 + Math.random() * 24,
     baseH:     45 + Math.random() * 75,
-    laneRatio: Math.random(),   // uniform: fills the full grass width
+    laneRatio: 0.3 + Math.random() * 1.1,  // biased toward/beyond screen edge; >1 = off-screen start
     rate:      0.28 + Math.random() * 0.14,
   };
 }
