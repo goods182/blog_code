@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<title>YosudaRower – Game Preview</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #111;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    min-height: 100vh;
+    font-family: 'Press Start 2P', monospace;
+    padding: 20px 0 40px;
+  }
+  .label {
+    color: #555;
+    font-size: 8px;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+  }
+  .phone-frame {
+    position: relative;
+    width: 390px;
+    height: 844px;
+    border-radius: 44px;
+    border: 6px solid #333;
+    overflow: hidden;
+    box-shadow: 0 0 60px #0af4, 0 0 120px #0062ff44;
+    background: #000;
+  }
+  canvas#game {
+    display: block;
+    width: 390px;
+    height: 844px;
+    image-rendering: pixelated;
+  }
+  /* CRT scanlines overlay */
+  .scanlines {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent 0px,
+      transparent 3px,
+      rgba(0,0,0,0.18) 3px,
+      rgba(0,0,0,0.18) 4px
+    );
+    pointer-events: none;
+    border-radius: 38px;
+    z-index: 10;
+  }
+  /* CRT vignette */
+  .vignette {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    border-radius: 38px;
+    background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.55) 100%);
+    pointer-events: none;
+    z-index: 11;
+  }
+  /* HUD overlays */
+  .hud-top {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    padding: 18px 16px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    z-index: 5;
+    pointer-events: none;
+  }
+  .hud-stat {
+    text-align: center;
+    background: rgba(0,0,0,0.55);
+    border: 1px solid #0af6;
+    padding: 5px 8px;
+    border-radius: 4px;
+  }
+  .hud-stat .val {
+    font-size: 13px;
+    color: #0ff;
+    display: block;
+    line-height: 1.4;
+    text-shadow: 0 0 8px #0ff;
+  }
+  .hud-stat .lbl {
+    font-size: 6px;
+    color: #7af;
+    display: block;
+    margin-top: 2px;
+  }
+  .hud-bottom {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    padding: 0 14px 18px;
+    z-index: 5;
+    pointer-events: none;
+  }
+  .xp-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .lvl-badge {
+    font-size: 7px;
+    color: #ff0;
+    background: rgba(0,0,0,0.7);
+    border: 1px solid #ff0;
+    padding: 4px 6px;
+    white-space: nowrap;
+    text-shadow: 0 0 6px #ff0;
+  }
+  .xp-bar-bg {
+    flex: 1;
+    height: 12px;
+    background: rgba(0,0,0,0.6);
+    border: 1px solid #555;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .xp-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ff0, #f80);
+    width: 62%;
+    transition: width 0.4s;
+    box-shadow: 0 0 6px #ff08;
+  }
+  .combo-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .combo {
+    font-size: 7px;
+    color: #f80;
+    text-shadow: 0 0 8px #f80;
+  }
+  .pts {
+    font-size: 7px;
+    color: #0f8;
+    text-shadow: 0 0 6px #0f8;
+  }
+  /* Controls below the phone */
+  .controls {
+    margin-top: 24px;
+    width: 390px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 18px 20px;
+  }
+  .controls h3 {
+    font-size: 9px;
+    color: #0af;
+    margin-bottom: 16px;
+    text-align: center;
+    letter-spacing: 2px;
+  }
+  .ctrl-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .ctrl-row label {
+    font-size: 7px;
+    color: #aaa;
+    width: 130px;
+    flex-shrink: 0;
+  }
+  input[type=range] {
+    flex: 1;
+    accent-color: #0af;
+    cursor: pointer;
+  }
+  .spm-val {
+    font-size: 9px;
+    color: #0ff;
+    width: 48px;
+    text-align: right;
+  }
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 6px;
+  }
+  button {
+    flex: 1;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    padding: 10px 6px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: filter 0.1s;
+  }
+  button:active { filter: brightness(1.5); }
+  #btnStroke { background: #0af; color: #000; }
+  #btnAuto   { background: #2a2a2a; color: #0f8; border: 1px solid #0f8; }
+  #btnAuto.on { background: #0f8; color: #000; }
+</style>
+</head>
+<body>
+
+<div class="label">⚓ yosudarower — preview mockup</div>
+
+<div class="phone-frame">
+  <canvas id="game" width="390" height="844"></canvas>
+
+  <!-- HUD top -->
+  <div class="hud-top">
+    <div class="hud-stat">
+      <span class="val" id="hudSpm">0</span>
+      <span class="lbl">SPM</span>
+    </div>
+    <div class="hud-stat">
+      <span class="val" id="hudDist">0 m</span>
+      <span class="lbl">DIST</span>
+    </div>
+    <div class="hud-stat">
+      <span class="val" id="hudTime">0:00</span>
+      <span class="lbl">TIME</span>
+    </div>
+    <div class="hud-stat">
+      <span class="val" id="hudCal">0</span>
+      <span class="lbl">KCAL</span>
+    </div>
+  </div>
+
+  <!-- HUD bottom -->
+  <div class="hud-bottom">
+    <div class="xp-row">
+      <div class="lvl-badge">LVL 7</div>
+      <div class="xp-bar-bg">
+        <div class="xp-bar-fill" id="xpFill"></div>
+      </div>
+    </div>
+    <div class="combo-row">
+      <div class="combo" id="comboTxt">COMBO x0</div>
+      <div class="pts" id="ptsTxt">2,840 XP</div>
+    </div>
+  </div>
+
+  <div class="scanlines"></div>
+  <div class="vignette"></div>
+</div>
+
+<!-- Controls -->
+<div class="controls">
+  <h3>— simulate rowing speed —</h3>
+  <div class="ctrl-row">
+    <label>STROKE RATE (SPM)</label>
+    <input type="range" id="spmSlider" min="0" max="40" value="0" step="1">
+    <span class="spm-val" id="spmDisplay">0</span>
+  </div>
+  <div class="btn-row">
+    <button id="btnStroke">⚡ STROKE!</button>
+    <button id="btnAuto">▶ AUTO ROW</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = 390, H = 844;
+
+// ── Palette ──────────────────────────────────────────────
+const C = {
+  sky1:'#7ec8e3', sky2:'#b8e0f0',
+  hill1:'#2d5a1b', hill2:'#3d7a25',
+  tree1:'#1a3d0a', tree2:'#2a5c14', tree3:'#224d10',
+  water1:'#2a6496', water2:'#1a4a72', waterL:'#5ba3c9',
+  bank:'#4a3728', reed:'#6b8c3a',
+  boat:'#8b5e3c', boatD:'#5c3d20',
+  oar:'#c8a46e', oarD:'#8b6240',
+  rowerBody:'#d4813a', rowerJacket:'#1a3d8a',
+  rowerHead:'#d4a574',
+  foam:'#cce8f4',
+};
+
+// ── State ─────────────────────────────────────────────────
+let spm = 0;
+let speed = 0;            // pixels/sec for parallax scroll
+let t = 0;                // global time seconds
+let strokePhase = 0;      // 0..1 through one stroke cycle
+let strokeActive = false;
+let autoMode = false;
+let nextAutoStroke = 0;
+let combo = 0, xp = 2840, dist = 0, cal = 0, elapsed = 0;
+let lastFrame = null;
+let xpFill = 62;
+
+// ── Parallax object pools ────────────────────────────────
+// Each layer: array of {x, type, h}
+const SCREEN_W = W;
+function makeTrees(n, xMin, xMax, side) {
+  let arr = [];
+  for (let i = 0; i < n; i++) {
+    arr.push({
+      x: xMin + Math.random()*(xMax-xMin),
+      type: Math.floor(Math.random()*3),
+      h: 40 + Math.random()*60,
+      w: 18 + Math.random()*22,
+      side
+    });
+  }
+  return arr.sort((a,b)=>a.x-b.x);
+}
+
+// Far tree silhouette (repeating strip)
+let farOffset = 0;
+let midOffset = 0;
+let nearOffset = 0;
+let waterOffset = 0;
+
+// Mid trees: two banks
+let midTreesL = [], midTreesR = [];
+let nearObjsL = [], nearObjsR = [];
+
+function initObjects() {
+  // Mid trees along left bank
+  for (let x = -60; x < W*3; x += 28 + Math.random()*20) {
+    midTreesL.push({ x, h: 55+Math.random()*50, w:14+Math.random()*16, type:Math.floor(Math.random()*3) });
+  }
+  // Mid trees right bank
+  for (let x = -60; x < W*3; x += 28 + Math.random()*20) {
+    midTreesR.push({ x, h: 55+Math.random()*50, w:14+Math.random()*16, type:Math.floor(Math.random()*3) });
+  }
+  // Near reeds left
+  for (let x = -30; x < W*3; x += 18+Math.random()*25) {
+    nearObjsL.push({ x, h: 28+Math.random()*20, type: Math.random()<0.6?'reed':'rock' });
+  }
+  // Near reeds right
+  for (let x = -30; x < W*3; x += 18+Math.random()*25) {
+    nearObjsR.push({ x, h: 28+Math.random()*20, type: Math.random()<0.6?'reed':'rock' });
+  }
+}
+initObjects();
+
+// ── Perspective helpers ───────────────────────────────────
+const VPX = W/2, VPY = 320;  // vanishing point
+const HORIZON = VPY;
+
+// Map a "world" bank X (left=0, right=1) and depth (0=horizon,1=screen bottom)
+// to screen coords
+function riverEdge(side, depth) {
+  // At horizon: river is narrow, left edge ~160, right edge ~230
+  // At bottom: left=20, right=370
+  const lH=160, rH=230, lB=20, rB=370;
+  const sx = side===0 ? lH + (lB-lH)*depth : rH + (rB-rH)*depth;
+  const sy = HORIZON + (H - HORIZON)*depth;
+  return {x:sx, y:sy};
+}
+
+// ── Draw functions ───────────────────────────────────────
+
+function drawSky() {
+  const g = ctx.createLinearGradient(0,0,0,HORIZON);
+  g.addColorStop(0,'#4a8fbf');
+  g.addColorStop(1,'#a8d8ea');
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,W,HORIZON);
+
+  // Pixel clouds
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  const cx = [(50 - farOffset*0.05)%W, (180 - farOffset*0.04)%W, (310 - farOffset*0.03)%W];
+  const cy = [60, 90, 50];
+  cx.forEach((x,i) => {
+    // chunky pixel cloud
+    let bx = ((x % W) + W) % W;
+    ctx.fillRect(bx,    cy[i],    28, 10);
+    ctx.fillRect(bx+6,  cy[i]-8,  16, 10);
+    ctx.fillRect(bx-4,  cy[i]+2,  10,  8);
+    ctx.fillRect(bx+20, cy[i]+2,  10,  8);
+  });
+}
+
+function drawFarHills() {
+  // Simple silhouette hills
+  ctx.fillStyle = C.hill1;
+  ctx.beginPath();
+  ctx.moveTo(0, HORIZON);
+  const hillPts = [
+    [0,280],[40,240],[90,255],[140,230],[200,248],[260,225],[320,242],[390,235],[390,HORIZON]
+  ];
+  const off = (farOffset * 0.12) % W;
+  hillPts.forEach(([x,y],i) => {
+    const sx = (x - off % W + W*2) % (W+80) - 40;
+    if (i===0) ctx.moveTo(sx, y); else ctx.lineTo(sx, y);
+  });
+  ctx.lineTo(W, HORIZON);
+  ctx.closePath();
+  ctx.fill();
+
+  // Slightly lighter second hill layer
+  ctx.fillStyle = C.hill2;
+  ctx.beginPath();
+  const h2 = [[0,295],[60,270],[130,285],[200,265],[280,278],[390,268],[390,HORIZON],[0,HORIZON]];
+  const off2 = (farOffset * 0.08) % W;
+  h2.forEach(([x,y],i) => {
+    const sx = (x - off2 % W + W*2) % (W+80) - 40;
+    if (i===0) ctx.moveTo(sx,y); else ctx.lineTo(sx,y);
+  });
+  ctx.closePath();
+  ctx.fill();
+}
+
+function pixelTree(x, y, w, h, type) {
+  // type 0 = pine, 1 = round, 2 = tall pine
+  if (type === 0 || type === 2) {
+    // Pine triangle
+    const cols = [C.tree1, C.tree2, C.tree3];
+    ctx.fillStyle = cols[type%3];
+    ctx.beginPath();
+    ctx.moveTo(x, y - h);
+    ctx.lineTo(x - w/2, y);
+    ctx.lineTo(x + w/2, y);
+    ctx.closePath();
+    ctx.fill();
+    // trunk
+    ctx.fillStyle = C.bank;
+    ctx.fillRect(x-2, y, 4, h*0.2);
+  } else {
+    // Chunky round tree
+    ctx.fillStyle = C.tree2;
+    const r = w/2;
+    ctx.beginPath();
+    ctx.arc(x, y-h*0.5, r, 0, Math.PI*2);
+    ctx.fill();
+    // trunk
+    ctx.fillStyle = C.bank;
+    ctx.fillRect(x-2, y-h*0.1, 4, h*0.4);
+  }
+}
+
+function drawMidTrees() {
+  // Left bank trees
+  const leftBankX = (depth) => riverEdge(0, depth).x - 6;
+  const rightBankX = (depth) => riverEdge(1, depth).x + 6;
+
+  midTreesL.forEach(tree => {
+    const ox = (tree.x - midOffset*0.35 % (W*3) + W*3) % (W*3);
+    if (ox > W+60 || ox < -60) return;
+    // depth based on how far down screen we'd be — use a proxy
+    const depth = Math.min(1, ox/(W*0.6));
+    const bx = leftBankX(depth*0.6);
+    const sy = HORIZON + (H-HORIZON)*depth*0.55;
+    const scale = 0.4 + depth*0.6;
+    pixelTree(bx - (ox%(W*0.4))*0.3, sy, tree.w*scale, tree.h*scale, tree.type);
+  });
+
+  midTreesR.forEach(tree => {
+    const ox = (tree.x - midOffset*0.35 % (W*3) + W*3) % (W*3);
+    if (ox > W+60 || ox < -60) return;
+    const depth = Math.min(1, ox/(W*0.6));
+    const bx = rightBankX(depth*0.6);
+    const sy = HORIZON + (H-HORIZON)*depth*0.55;
+    const scale = 0.4 + depth*0.6;
+    pixelTree(bx + (ox%(W*0.4))*0.3, sy, tree.w*scale, tree.h*scale, tree.type);
+  });
+}
+
+function drawRiver() {
+  // River polygon
+  ctx.beginPath();
+  ctx.moveTo(riverEdge(0,0).x, HORIZON);
+  ctx.lineTo(riverEdge(1,0).x, HORIZON);
+  ctx.lineTo(riverEdge(1,1).x, H);
+  ctx.lineTo(riverEdge(0,1).x, H);
+  ctx.closePath();
+  const rg = ctx.createLinearGradient(W/2, HORIZON, W/2, H);
+  rg.addColorStop(0, '#3a7abd');
+  rg.addColorStop(0.4,'#2460a0');
+  rg.addColorStop(1,  '#1a4070');
+  ctx.fillStyle = rg;
+  ctx.fill();
+
+  // Perspective ripple lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 12; i++) {
+    const depth = ((i/12) + (waterOffset*0.003)) % 1;
+    const y = HORIZON + (H-HORIZON)*depth;
+    const lx = riverEdge(0,depth).x;
+    const rx = riverEdge(1,depth).x;
+    ctx.beginPath();
+    ctx.moveTo(lx, y);
+    ctx.lineTo(rx, y);
+    ctx.stroke();
+  }
+
+  // Highlight strip down center
+  const cg = ctx.createLinearGradient(W/2-15,0,W/2+15,0);
+  cg.addColorStop(0,'transparent');
+  cg.addColorStop(0.5,'rgba(255,255,255,0.08)');
+  cg.addColorStop(1,'transparent');
+  ctx.fillStyle = cg;
+  ctx.beginPath();
+  ctx.moveTo(VPX-8, HORIZON);
+  ctx.lineTo(VPX+8, HORIZON);
+  ctx.lineTo(W/2+30, H);
+  ctx.lineTo(W/2-30, H);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawBanks() {
+  // Left bank strip
+  ctx.beginPath();
+  ctx.moveTo(0,HORIZON);
+  ctx.lineTo(riverEdge(0,0).x, HORIZON);
+  for (let d=0; d<=1; d+=0.05) {
+    const p = riverEdge(0,d);
+    ctx.lineTo(p.x, p.y);
+  }
+  ctx.lineTo(0, H);
+  ctx.closePath();
+  ctx.fillStyle = '#3d5c1a';
+  ctx.fill();
+
+  // Right bank strip
+  ctx.beginPath();
+  ctx.moveTo(W,HORIZON);
+  ctx.lineTo(riverEdge(1,0).x, HORIZON);
+  for (let d=0; d<=1; d+=0.05) {
+    const p = riverEdge(1,d);
+    ctx.lineTo(p.x, p.y);
+  }
+  ctx.lineTo(W, H);
+  ctx.closePath();
+  ctx.fillStyle = '#3d5c1a';
+  ctx.fill();
+}
+
+function drawNearObjects() {
+  // Reeds and rocks close to camera along both banks
+  const bankL = riverEdge(0, 0.85);
+  const bankR = riverEdge(1, 0.85);
+
+  nearObjsL.forEach(obj => {
+    const ox = ((obj.x - nearOffset*0.75) % (W*3) + W*3) % (W*3);
+    if (ox > W*1.2) return;
+    const bx = bankL.x - 5 - (ox/W)*35;
+    const by = bankL.y + (obj.h * 0.3);
+    if (obj.type==='reed') {
+      ctx.fillStyle = '#5a7a2a';
+      ctx.fillRect(bx, by-obj.h, 3, obj.h);
+      ctx.fillStyle = '#8aaa4a';
+      ctx.fillRect(bx-3, by-obj.h, 8, 6); // head
+    } else {
+      ctx.fillStyle = '#554433';
+      ctx.beginPath();
+      ctx.ellipse(bx, by, obj.h*0.5, obj.h*0.3, 0, 0, Math.PI*2);
+      ctx.fill();
+    }
+  });
+
+  nearObjsR.forEach(obj => {
+    const ox = ((obj.x - nearOffset*0.75) % (W*3) + W*3) % (W*3);
+    if (ox > W*1.2) return;
+    const bx = bankR.x + 5 + (ox/W)*35;
+    const by = bankR.y + (obj.h * 0.3);
+    if (obj.type==='reed') {
+      ctx.fillStyle = '#5a7a2a';
+      ctx.fillRect(bx, by-obj.h, 3, obj.h);
+      ctx.fillStyle = '#8aaa4a';
+      ctx.fillRect(bx-3, by-obj.h, 8, 6);
+    } else {
+      ctx.fillStyle = '#554433';
+      ctx.beginPath();
+      ctx.ellipse(bx, by, obj.h*0.5, obj.h*0.3, 0, 0, Math.PI*2);
+      ctx.fill();
+    }
+  });
+}
+
+function drawBoatAndRower(phase) {
+  // phase 0=catch, 0.25=drive, 0.5=finish, 0.75=recovery
+  // Boat hull (bottom of screen, perspective)
+  const bY = H - 30;
+
+  // Left gunwale
+  ctx.fillStyle = C.boat;
+  ctx.beginPath();
+  ctx.moveTo(0, bY+10);
+  ctx.lineTo(30, bY-20);
+  ctx.lineTo(W/2-30, bY-55);
+  ctx.lineTo(W/2-30, bY-45);
+  ctx.lineTo(30, bY-8);
+  ctx.lineTo(0, bY+18);
+  ctx.closePath();
+  ctx.fill();
+
+  // Right gunwale
+  ctx.beginPath();
+  ctx.moveTo(W, bY+10);
+  ctx.lineTo(W-30, bY-20);
+  ctx.lineTo(W/2+30, bY-55);
+  ctx.lineTo(W/2+30, bY-45);
+  ctx.lineTo(W-30, bY-8);
+  ctx.lineTo(W, bY+18);
+  ctx.closePath();
+  ctx.fill();
+
+  // Boat interior strip
+  ctx.fillStyle = C.boatD;
+  ctx.beginPath();
+  ctx.moveTo(W/2-30, bY-55);
+  ctx.lineTo(W/2+30, bY-55);
+  ctx.lineTo(W/2+26, bY-48);
+  ctx.lineTo(W/2-26, bY-48);
+  ctx.closePath();
+  ctx.fill();
+
+  // ── Rower ──
+  const torsoY = bY - 60;
+  // Lean angle based on phase: catch=forward, finish=back
+  const leanAngle = Math.sin(phase * Math.PI * 2) * 0.3; // -0.3 to +0.3 rad
+
+  ctx.save();
+  ctx.translate(W/2, torsoY);
+  ctx.rotate(leanAngle);
+
+  // Torso (jacket)
+  ctx.fillStyle = C.rowerJacket;
+  ctx.fillRect(-18, -40, 36, 42);
+  // Shoulders
+  ctx.fillRect(-24, -36, 12, 10);
+  ctx.fillRect(12, -36, 12, 10);
+
+  // Head
+  ctx.fillStyle = C.rowerHead;
+  ctx.beginPath();
+  ctx.arc(0, -52, 14, 0, Math.PI*2);
+  ctx.fill();
+  // Hair (pixel cap)
+  ctx.fillStyle = '#222';
+  ctx.fillRect(-14, -66, 28, 12);
+
+  ctx.restore();
+
+  // ── Oars ──
+  // Oar angle: catch=-0.5rad (forward), finish=+0.7rad (back)
+  const oarAngle = -0.5 + phase * 1.2;
+  const oarY = bY - 70;
+
+  // Left oar
+  ctx.save();
+  ctx.translate(60, oarY);
+  ctx.rotate(oarAngle - 0.1);
+  ctx.fillStyle = C.oar;
+  ctx.fillRect(-6, -8, 12, 110);  // shaft
+  ctx.fillStyle = C.oarD;
+  ctx.fillRect(-10, 95, 20, 22);  // blade
+  // in-water splash when drive phase
+  if (phase > 0.05 && phase < 0.45) {
+    ctx.fillStyle = 'rgba(180,230,255,0.7)';
+    ctx.beginPath();
+    ctx.ellipse(0, 108, 14, 6, 0, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // Right oar
+  ctx.save();
+  ctx.translate(W-60, oarY);
+  ctx.rotate(-oarAngle + 0.1);
+  ctx.fillStyle = C.oar;
+  ctx.fillRect(-6, -8, 12, 110);
+  ctx.fillStyle = C.oarD;
+  ctx.fillRect(-10, 95, 20, 22);
+  if (phase > 0.05 && phase < 0.45) {
+    ctx.fillStyle = 'rgba(180,230,255,0.7)';
+    ctx.beginPath();
+    ctx.ellipse(0, 108, 14, 6, 0, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ── Stats update ─────────────────────────────────────────
+let statsInterval = null;
+let startTime = null;
+
+function updateHUD() {
+  document.getElementById('hudSpm').textContent = spm;
+  document.getElementById('hudDist').textContent = dist < 1000
+    ? dist + ' m' : (dist/1000).toFixed(2)+' km';
+  const m = Math.floor(elapsed/60), s = elapsed%60;
+  document.getElementById('hudTime').textContent = m+':'+(s<10?'0':'')+s;
+  document.getElementById('hudCal').textContent = cal;
+  document.getElementById('comboTxt').textContent = 'COMBO x'+combo;
+  document.getElementById('ptsTxt').textContent = xp.toLocaleString()+' XP';
+  document.getElementById('xpFill').style.width = xpFill+'%';
+}
+
+function onStroke() {
+  combo++;
+  xp += Math.floor(10 + combo * 2 + spm * 0.5);
+  xpFill = Math.min(99, xpFill + 0.8);
+  if (xpFill >= 99) xpFill = 10; // level up reset
+  // trigger stroke animation
+  strokePhase = 0;
+  strokeActive = true;
+}
+
+// ── Main loop ────────────────────────────────────────────
+function frame(ts) {
+  if (!lastFrame) lastFrame = ts;
+  const dt = Math.min((ts - lastFrame)/1000, 0.05);
+  lastFrame = ts;
+  t += dt;
+
+  // Target speed from SPM
+  const targetSpeed = spm * 8;
+  speed += (targetSpeed - speed) * dt * 3;
+
+  // Scroll offsets
+  farOffset  += speed * dt * 0.15;
+  midOffset  += speed * dt * 0.35;
+  nearOffset += speed * dt * 0.75;
+  waterOffset+= speed * dt;
+
+  // Stats
+  elapsed = Math.floor(t);
+  dist = Math.floor(speed * t * 0.05);
+  cal = Math.floor(dist * 0.06);
+
+  // Combo decay when not rowing
+  if (spm === 0 && combo > 0 && Math.floor(t) % 3 === 0) combo = Math.max(0, combo-1);
+
+  // Auto-stroke timing
+  if (autoMode && spm > 0) {
+    if (t >= nextAutoStroke) {
+      onStroke();
+      nextAutoStroke = t + 60/spm;
+    }
+  }
+
+  // Stroke animation
+  if (strokeActive) {
+    const strokeDur = spm > 0 ? 60/spm : 1.0;
+    strokePhase += dt / strokeDur;
+    if (strokePhase >= 1) { strokePhase = 0; strokeActive = autoMode; }
+  } else if (!autoMode) {
+    // idle gentle rock
+    strokePhase = 0.02 + Math.sin(t*0.8)*0.01;
+  }
+
+  // Draw
+  ctx.clearRect(0,0,W,H);
+  drawSky();
+  drawFarHills();
+  drawBanks();
+  drawMidTrees();
+  drawRiver();
+  drawNearObjects();
+  drawBoatAndRower(strokePhase);
+
+  updateHUD();
+  requestAnimationFrame(frame);
+}
+
+// ── Controls ─────────────────────────────────────────────
+document.getElementById('spmSlider').addEventListener('input', e => {
+  spm = parseInt(e.target.value);
+  document.getElementById('spmDisplay').textContent = spm + ' spm';
+  if (autoMode && spm > 0) nextAutoStroke = t + 60/spm;
+  if (spm === 0) combo = 0;
+});
+
+document.getElementById('btnStroke').addEventListener('click', () => {
+  if (!autoMode) onStroke();
+});
+
+document.getElementById('btnAuto').addEventListener('click', () => {
+  autoMode = !autoMode;
+  const btn = document.getElementById('btnAuto');
+  btn.textContent = autoMode ? '⏹ STOP AUTO' : '▶ AUTO ROW';
+  btn.classList.toggle('on', autoMode);
+  if (autoMode && spm > 0) nextAutoStroke = t + 0.1;
+  if (!autoMode) { strokeActive = false; combo = 0; }
+});
+
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
