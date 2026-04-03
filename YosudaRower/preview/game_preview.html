@@ -310,14 +310,22 @@ let farOffset  = 0;   // hills / sky clouds (still horizontal)
 let waterOffset = 0;  // water ripple lines
 
 function randTree() {
+  // Three spread bands: near bank, mid grass, deep into the bank
+  const band = Math.random();
+  const spread = band < 0.25
+    ? 5   + Math.random() * 35     // near water edge
+    : band < 0.65
+      ? 40  + Math.random() * 90   // mid grass
+      : 130 + Math.random() * 130; // deep bank / tree line
+
   return {
-    d:      Math.random(),                    // start spread across full depth
+    d:      Math.random(),
     side:   Math.random() < 0.5 ? 'L' : 'R',
     type:   Math.floor(Math.random() * 3),
-    baseW:  16 + Math.random() * 22,
-    baseH:  50 + Math.random() * 65,
-    spread: 12 + Math.random() * 35,         // lateral offset from bank at d=1
-    rate:   0.28 + Math.random() * 0.14,     // depth advance rate (mid layer)
+    baseW:  14 + Math.random() * 24,
+    baseH:  45 + Math.random() * 75,
+    spread,
+    rate:   0.28 + Math.random() * 0.14,
   };
 }
 
@@ -332,7 +340,7 @@ function randReed() {
   };
 }
 
-const treePool = Array.from({length: 32}, randTree);
+const treePool = Array.from({length: 52}, randTree);
 const reedPool = Array.from({length: 22}, randReed);
 
 // ── Perspective helpers ───────────────────────────────────
