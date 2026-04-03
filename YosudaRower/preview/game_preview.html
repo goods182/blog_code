@@ -299,52 +299,41 @@ let combo = 0, xp = 2840, dist = 0, cal = 0, elapsed = 0;
 let lastFrame = null;
 let xpFill = 62;
 
-// ── Parallax object pools ────────────────────────────────
-// Each layer: array of {x, type, h}
-const SCREEN_W = W;
-function makeTrees(n, xMin, xMax, side) {
-  let arr = [];
-  for (let i = 0; i < n; i++) {
-    arr.push({
-      x: xMin + Math.random()*(xMax-xMin),
-      type: Math.floor(Math.random()*3),
-      h: 40 + Math.random()*60,
-      w: 18 + Math.random()*22,
-      side
-    });
-  }
-  return arr.sort((a,b)=>a.x-b.x);
+// ── Depth-based parallax pools ───────────────────────────
+// Each object has d: 0 (horizon) → 1 (at camera / bottom of screen).
+// Every frame d advances by speed*dt*rate; when d>1 the object recycles
+// back to d=0 with fresh random properties.  This produces the correct
+// first-person effect: objects emerge tiny near the vanishing point and
+// zoom outward toward the bottom-left / bottom-right corners.
+
+let farOffset  = 0;   // hills / sky clouds (still horizontal)
+let waterOffset = 0;  // water ripple lines
+
+function randTree() {
+  return {
+    d:      Math.random(),                    // start spread across full depth
+    side:   Math.random() < 0.5 ? 'L' : 'R',
+    type:   Math.floor(Math.random() * 3),
+    baseW:  16 + Math.random() * 22,
+    baseH:  50 + Math.random() * 65,
+    spread: 12 + Math.random() * 35,         // lateral offset from bank at d=1
+    rate:   0.28 + Math.random() * 0.14,     // depth advance rate (mid layer)
+  };
 }
 
-// Far tree silhouette (repeating strip)
-let farOffset = 0;
-let midOffset = 0;
-let nearOffset = 0;
-let waterOffset = 0;
-
-// Mid trees: two banks
-let midTreesL = [], midTreesR = [];
-let nearObjsL = [], nearObjsR = [];
-
-function initObjects() {
-  // Mid trees along left bank
-  for (let x = -60; x < W*3; x += 28 + Math.random()*20) {
-    midTreesL.push({ x, h: 55+Math.random()*50, w:14+Math.random()*16, type:Math.floor(Math.random()*3) });
-  }
-  // Mid trees right bank
-  for (let x = -60; x < W*3; x += 28 + Math.random()*20) {
-    midTreesR.push({ x, h: 55+Math.random()*50, w:14+Math.random()*16, type:Math.floor(Math.random()*3) });
-  }
-  // Near reeds left
-  for (let x = -30; x < W*3; x += 18+Math.random()*25) {
-    nearObjsL.push({ x, h: 28+Math.random()*20, type: Math.random()<0.6?'reed':'rock' });
-  }
-  // Near reeds right
-  for (let x = -30; x < W*3; x += 18+Math.random()*25) {
-    nearObjsR.push({ x, h: 28+Math.random()*20, type: Math.random()<0.6?'reed':'rock' });
-  }
+function randReed() {
+  return {
+    d:      Math.random(),
+    side:   Math.random() < 0.5 ? 'L' : 'R',
+    objType: Math.random() < 0.65 ? 'reed' : 'rock',
+    baseH:  20 + Math.random() * 22,
+    spread: 4  + Math.random() * 18,
+    rate:   0.55 + Math.random() * 0.25,     // near layer — faster
+  };
 }
-initObjects();
+
+const treePool = Array.from({length: 32}, randTree);
+const reedPool = Array.from({length: 22}, randReed);
 
 // ── Perspective helpers ───────────────────────────────────
 const VPX = W/2, VPY = 320;  // vanishing point
@@ -442,30 +431,25 @@ function pixelTree(x, y, w, h, type) {
   }
 }
 
-function drawMidTrees() {
-  // Left bank trees
-  const leftBankX = (depth) => riverEdge(0, depth).x - 6;
-  const rightBankX = (depth) => riverEdge(1, depth).x + 6;
+function drawMidTrees(dt) {
+  // Advance depth and recycle; draw back-to-front (sort by d ascending)
+  treePool.sort((a, b) => a.d - b.d);
 
-  midTreesL.forEach(tree => {
-    const ox = (tree.x - midOffset*0.35 % (W*3) + W*3) % (W*3);
-    if (ox > W+60 || ox < -60) return;
-    // depth based on how far down screen we'd be — use a proxy
-    const depth = Math.min(1, ox/(W*0.6));
-    const bx = leftBankX(depth*0.6);
-    const sy = HORIZON + (H-HORIZON)*depth*0.55;
-    const scale = 0.4 + depth*0.6;
-    pixelTree(bx - (ox%(W*0.4))*0.3, sy, tree.w*scale, tree.h*scale, tree.type);
-  });
+  treePool.forEach(tree => {
+    tree.d += speed * dt * tree.rate * 0.012;
+    if (tree.d > 1.08) Object.assign(tree, randTree(), {d: 0.0});
 
-  midTreesR.forEach(tree => {
-    const ox = (tree.x - midOffset*0.35 % (W*3) + W*3) % (W*3);
-    if (ox > W+60 || ox < -60) return;
-    const depth = Math.min(1, ox/(W*0.6));
-    const bx = rightBankX(depth*0.6);
-    const sy = HORIZON + (H-HORIZON)*depth*0.55;
-    const scale = 0.4 + depth*0.6;
-    pixelTree(bx + (ox%(W*0.4))*0.3, sy, tree.w*scale, tree.h*scale, tree.type);
+    const d = tree.d;
+    if (d < 0.015) return;  // too close to horizon, invisible
+
+    const edge  = riverEdge(tree.side === 'L' ? 0 : 1, d);
+    const scale = d * 1.1;
+    // Lateral spread grows quadratically — feels more natural in perspective
+    const spreadPx = tree.spread * d * d;
+    const sx = tree.side === 'L' ? edge.x - spreadPx : edge.x + spreadPx;
+    const sy = edge.y;
+
+    pixelTree(sx, sy, tree.baseW * scale, tree.baseH * scale, tree.type);
   });
 }
 
@@ -541,43 +525,32 @@ function drawBanks() {
   ctx.fill();
 }
 
-function drawNearObjects() {
-  // Reeds and rocks close to camera along both banks
-  const bankL = riverEdge(0, 0.85);
-  const bankR = riverEdge(1, 0.85);
+function drawNearObjects(dt) {
+  reedPool.sort((a, b) => a.d - b.d);
 
-  nearObjsL.forEach(obj => {
-    const ox = ((obj.x - nearOffset*0.75) % (W*3) + W*3) % (W*3);
-    if (ox > W*1.2) return;
-    const bx = bankL.x - 5 - (ox/W)*35;
-    const by = bankL.y + (obj.h * 0.3);
-    if (obj.type==='reed') {
+  reedPool.forEach(obj => {
+    obj.d += speed * dt * obj.rate * 0.012;
+    if (obj.d > 1.08) Object.assign(obj, randReed(), {d: 0.0});
+
+    const d = obj.d;
+    if (d < 0.02) return;
+
+    const edge     = riverEdge(obj.side === 'L' ? 0 : 1, d);
+    const scale    = d * 1.1;
+    const spreadPx = obj.spread * d * d;
+    const bx = obj.side === 'L' ? edge.x - spreadPx : edge.x + spreadPx;
+    const by = edge.y;
+    const h  = obj.baseH * scale;
+
+    if (obj.objType === 'reed') {
       ctx.fillStyle = '#5a7a2a';
-      ctx.fillRect(bx, by-obj.h, 3, obj.h);
+      ctx.fillRect(bx, by - h, Math.max(1, 3 * scale), h);
       ctx.fillStyle = '#8aaa4a';
-      ctx.fillRect(bx-3, by-obj.h, 8, 6); // head
+      ctx.fillRect(bx - 3*scale, by - h, 8*scale, 6*scale);
     } else {
       ctx.fillStyle = '#554433';
       ctx.beginPath();
-      ctx.ellipse(bx, by, obj.h*0.5, obj.h*0.3, 0, 0, Math.PI*2);
-      ctx.fill();
-    }
-  });
-
-  nearObjsR.forEach(obj => {
-    const ox = ((obj.x - nearOffset*0.75) % (W*3) + W*3) % (W*3);
-    if (ox > W*1.2) return;
-    const bx = bankR.x + 5 + (ox/W)*35;
-    const by = bankR.y + (obj.h * 0.3);
-    if (obj.type==='reed') {
-      ctx.fillStyle = '#5a7a2a';
-      ctx.fillRect(bx, by-obj.h, 3, obj.h);
-      ctx.fillStyle = '#8aaa4a';
-      ctx.fillRect(bx-3, by-obj.h, 8, 6);
-    } else {
-      ctx.fillStyle = '#554433';
-      ctx.beginPath();
-      ctx.ellipse(bx, by, obj.h*0.5, obj.h*0.3, 0, 0, Math.PI*2);
+      ctx.ellipse(bx, by, h*0.55, h*0.32, 0, 0, Math.PI*2);
       ctx.fill();
     }
   });
@@ -724,11 +697,9 @@ function frame(ts) {
   const targetSpeed = spm * 8;
   speed += (targetSpeed - speed) * dt * 3;
 
-  // Scroll offsets
-  farOffset  += speed * dt * 0.15;
-  midOffset  += speed * dt * 0.35;
-  nearOffset += speed * dt * 0.75;
-  waterOffset+= speed * dt;
+  // Scroll offsets (hills/clouds still use horizontal offset)
+  farOffset   += speed * dt * 0.15;
+  waterOffset += speed * dt;
 
   // Stats
   elapsed = Math.floor(t);
@@ -761,9 +732,9 @@ function frame(ts) {
   drawSky();
   drawFarHills();
   drawBanks();
-  drawMidTrees();
+  drawMidTrees(dt);
   drawRiver();
-  drawNearObjects();
+  drawNearObjects(dt);
   drawBoatAndRower(strokePhase);
 
   updateHUD();
